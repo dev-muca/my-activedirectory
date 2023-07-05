@@ -1,4 +1,30 @@
 {
+  "name": "activedirectory3",
+  "description": "Active Directory API for NodeJS",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dev-muca/activedirectory3.git"
+  },
+  "keywords": [
+    "activedirectory",
+    "active",
+    "directory",
+    "ldap",
+    "ldaps",
+    "api",
+    "nodejs"
+  ],
+  "author": "Murilo De Carvalho Baleeiro",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dev-muca/activedirectory3/issues"
+  },
+  "homepage": "https://github.com/dev-muca/activedirectory3#readme",
   "dependencies": {
     "ldapjs": "^3.0.3"
   }
