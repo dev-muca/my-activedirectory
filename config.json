@@ -1,0 +1,34 @@
+{
+  "defaults": {
+    "objectClass": "User",
+    "attributes": [
+      "givenName",
+      "sn",
+      "cn",
+      "name",
+      "displayName",
+      "sAMAccountName",
+      "mail",
+      "userPrincipalName",
+      "description",
+      "company",
+      "title",
+      "department",
+      "physicalDeliveryOfficeName",
+      "c",
+      "co",
+      "l",
+      "st",
+      "postalCode",
+      "mobile",
+      "telephoneNumber",
+      "homePhone",
+      "streetAddress",
+      "wWWHomePage",
+      "userAccountControl",
+      "dn",
+      "directReports",
+      "memberOf"
+    ]
+  }
+}
