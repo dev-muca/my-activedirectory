@@ -5,6 +5,7 @@
       "givenName",
       "sn",
       "cn",
+      "dn",
       "name",
       "displayName",
       "sAMAccountName",

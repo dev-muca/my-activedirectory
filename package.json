@@ -1,5 +1,5 @@
 {
-  "name": "activedirectory3",
+  "name": "my-activedirectory",
   "description": "Active Directory API for NodeJS",
   "version": "1.0.0",
   "main": "index.js",
