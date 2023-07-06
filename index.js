@@ -1,5 +1,8 @@
 const ldap = require("ldapjs");
-const configFile = require("./config.json");
+const ssha = require("node-ssha256");
+const configFile = require("./lib/config.json");
+const { getFirstName, getLastName, getRestName } = require("./lib/utils/names");
+const { parseLocation } = require("./lib/utils/parseLocation");
 
 class ActiveDirectory {
   constructor(config) {
@@ -10,55 +13,15 @@ class ActiveDirectory {
     this.baseDN = `DC=${this.domain.split(".")[0].toUpperCase()},DC=${this.domain.split(".")[1].toUpperCase()}`;
   }
 
-  authenticate(username, password) {
-    return new Promise((resolve, reject) => {
-      if (!username || !password) return reject(new Error("credentials must be provided"));
-
-      const client = ldap.createClient({
-        url: this.url,
-      });
-
-      client.bind(`${username}@${this.domain}`, password, (err) => {
-        if (err) {
-          client.unbind();
-          return reject(false);
-        }
-
-        const params = {
-          scope: "sub",
-          filter: `(sAMAccountName=${username})`,
-        };
-
-        client.search(this.baseDN, params, (err, res) => {
-          if (err) return reject(err);
-
-          res.on("searchEntry", (entry) => resolve(true));
-
-          res.on("error", (err) => reject(false));
-
-          res.on("end", (res) => {
-            client.unbind((err) => {
-              if (err) {
-                reject(err);
-                return;
-              }
-
-              if (res.status !== 0) {
-                reject(new Error("Authenticate failed"));
-              }
-            });
-          });
-        });
-      });
-    });
-  }
-
   userExists(username) {
     return new Promise((resolve, reject) => {
       if (!username) return reject(false);
 
       const client = ldap.createClient({
         url: this.url,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
       });
 
       client.bind(this.user, this.pass, (err) => {
@@ -98,12 +61,66 @@ class ActiveDirectory {
     });
   }
 
+  authenticate(username, password) {
+    return new Promise(async (resolve, reject) => {
+      if (!username) return reject({ field: "username", message: "Username is required" });
+      if (!password) return reject({ field: "password", message: "Password is required" });
+
+      const exists = await this.userExists(username);
+
+      if (!exists) return reject({ field: "username", message: "Invalid username" });
+
+      const client = ldap.createClient({
+        url: this.url,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
+      });
+
+      client.bind(`${username}@${this.domain}`, password, (err) => {
+        if (err) {
+          client.unbind();
+          return reject({ field: "password", message: "invalid password" });
+        }
+
+        const params = {
+          scope: "sub",
+          filter: `(sAMAccountName=${username})`,
+        };
+
+        client.search(this.baseDN, params, (err, res) => {
+          if (err) return reject(err);
+
+          res.on("searchEntry", (entry) => resolve(true));
+
+          res.on("error", (err) => reject(false));
+
+          res.on("end", (res) => {
+            client.unbind((err) => {
+              if (err) {
+                reject(err);
+                return;
+              }
+
+              if (res.status !== 0) {
+                reject(new Error("Authenticate failed"));
+              }
+            });
+          });
+        });
+      });
+    });
+  }
+
   findUser(username) {
     return new Promise((resolve, reject) => {
       if (!username) return reject(new Error("username is required"));
 
       const client = ldap.createClient({
         url: this.url,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
       });
 
       client.bind(this.user, this.pass, (err) => {
@@ -121,7 +138,7 @@ class ActiveDirectory {
           let user = null;
 
           res.on("searchEntry", (entry) => {
-            // user = entry.pojo.attributes[0];
+            // console.log(entry.pojo.objectName);
 
             const attributes = entry.pojo.attributes;
             const details = {};
@@ -133,6 +150,7 @@ class ActiveDirectory {
               details[attributeName] = attributeValue;
             }
 
+            details.objectName = entry.pojo.objectName;
             user = details;
           });
 
@@ -163,6 +181,9 @@ class ActiveDirectory {
     return new Promise((resolve, reject) => {
       const client = ldap.createClient({
         url: this.url,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
       });
 
       client.bind(this.user, this.pass, (err) => {
@@ -225,99 +246,113 @@ class ActiveDirectory {
     });
   }
 
+  getUserLocation(userName) {
+    return new Promise(async (resolve, reject) => {
+      this.findUser(userName)
+        .then((userObject) => {
+          if (Object.keys(userObject).length < 1) {
+            return reject({ error: true, message: "User does not exist." });
+          }
+          let dn = userObject.objectName;
+          let left = String(dn).replace(/DC=/g, "dc=").replace(/CN=/g, "cn=").replace(/OU=/g, "ou=").split(",dc=")[0];
+          let location = String(left).split(",").slice(1).reverse().join("/").replace(/cn=/g, "!").replace(/ou=/g, "");
+          return resolve(location);
+        })
+        .catch((err) => {
+          return reject(err);
+        });
+    });
+  }
+
   addUser(user) {
-    return new Promise((reject, resolve) => {
+    return new Promise((resolve, reject) => {
+      //Required fields
+      let { fullname, username, password, location } = user;
+
+      //Optional fields
       let {
-        fullname,
-        username,
+        commonName,
+        name,
+        displayName,
         email,
         description,
         company,
         title,
         department,
         office,
-        country,
-        city,
-        state,
+        countryAcronym,
+        countryName,
+        cityName,
+        stateName,
         postalCode,
         mobileNumber,
-        homePhone,
+        telephoneNumber,
         streetAddress,
-        password,
-        local,
-        enabled,
+        website,
       } = user;
 
-      // miniium required fullname and password
-      if (!fullname || !password) {
-        reject(new Error("fullname and password is required"));
-        return;
-      }
+      if (!fullname) return reject({ field: "fullname", message: "fullname is required" });
+      if (!password) return reject({ field: "password", message: "password is required" });
+      if (!username) username = `${getFirstName(fullname).toLowerCase()}.${getLastName(fullname).toLowerCase()}`;
 
-      const nameParts = fullname.split(" ");
-      const firstName = nameParts[0];
-      const lastName = nameParts[nameParts.length - 1];
-      const restName = nameParts.slice(1, nameParts.length).join(" ");
-
-      if (!username) username = `${firstName.toLowerCase()}.${lastName.toLowerCase()}`;
-
-      // const userObject = {
-      //   givenName: firstName,
-      //   sn: lastName,
-      //   cn: `${firstName} ${restName}`,
-      //   name: fullname,
-      //   displayName: fullname,
-      //   sAMAccountName: username,
-      //   mail: email,
-      //   userPrincipalName: `${username}@${this.domain}`,
-      //   description: description,
-      //   company: company,
-      //   title: title,
-      //   department: department,
-      //   physicalDeliveryOfficeName: office,
-      //   co: country,
-      //   l: city,
-      //   st: state,
-      //   postalCode: postalCode,
-      //   mobile: mobileNumber,
-      //   telephoneNumber: mobileNumber,
-      //   homePhone: homePhone,
-      //   streetAddress: streetAddress,
-      //   userAccountControl: enabled ? 66048 : 66050,
-      //   userPassword: password,
-      //   objectClass: ["top", "person", "organizationalPerson", "user"],
-      // };
+      commonName = `${getFirstName(fullname)} ${getRestName(fullname)}`;
+      name = fullname;
+      displayName = fullname;
 
       const userObject = {
-        cn: "teste teste",
-        sn: "teste",
-        givenName: "teste",
-        sAMAccountName: "teste.com",
-        userPrincipalName: `${user.sAMAccountName}@example.com`,
-        userPassword: "teste@123",
-        objectClass: ["top", "person", "organizationalPerson", "user"],
+        userPrincipalName: `${username}@${this.domain}`,
+        objectClass: configFile.defaults.objectClass,
+        userPassword: password,
+        givenName: getFirstName(fullname),
+        sn: getLastName(fullname),
+        sAMAccountName: username,
+        cn: commonName,
+        name: name,
+        displayName: displayName,
+        mail: email,
+        description: description,
+        company: company,
+        title: title,
+        department: department,
+        physicalDeliveryOfficeName: office,
+        c: countryAcronym,
+        co: countryName,
+        l: cityName,
+        st: stateName,
+        postalCode: postalCode,
+        mobile: mobileNumber,
+        telephoneNumber: mobileNumber,
+        homePhone: telephoneNumber,
+        streetAddress: streetAddress,
+        wWWHomePage: website,
       };
+
+      location = parseLocation(location);
+      console.log(location);
 
       const client = ldap.createClient({
         url: this.url,
+        tlsOptions: {
+          rejectUnauthorized: false,
+        },
       });
 
       client.bind(this.user, this.pass, (err) => {
         if (err) return reject(err);
 
-        client.add(`CN=${userObject.cn},${this.baseDN}`, userObject, (err) => {
-          if (err) {
-            client.unbind();
-            reject(err);
-            return;
+        client.add(`CN=${userObject.cn},OU=Administrativo,OU=Colaboradores,${this.baseDN}`, userObject, (addErr) => {
+          client.unbind();
+
+          if (addErr) {
+            const ENTRY_EXISTS = addErr.message.includes("Entry Already Exists");
+            if (ENTRY_EXISTS) {
+              return reject({ created: false, message: "user already exists" });
+            }
           }
 
-          resolve("User created");
-          client.unbind();
+          resolve({ created: true, message: "user created" });
         });
       });
-
-      client.unbind();
     });
   }
 }

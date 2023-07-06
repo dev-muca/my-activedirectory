@@ -1,0 +1,28 @@
+{
+  cn: 'Murilo Carvalho Baleeiro',
+  sn: 'Carvalho Baleeiro',
+  c: 'BR',
+  l: 'Lins',
+  st: 'São Paulo',
+  title: 'Desenvolvedor Web',
+  description: 'Tecnologia da Informação',
+  postalCode: '16404-535',
+  physicalDeliveryOfficeName: 'Home-Office',
+  telephoneNumber: '14 99153-6847',
+  givenName: 'Murilo',
+  displayName: 'Murilo Carvalho Baleeiro',
+ 
+  co: 'Brasil',
+  department: 'Tecnologia da Informação',
+  company: 'Corporation S/A',
+  streetAddress: 'Rua João Batista Ansaneli, Nº 75',
+  
+  wWWHomePage: 'http://github.com/dev-muca',
+  name: 'Murilo Carvalho Baleeiro',
+  userAccountControl: '66048',
+  sAMAccountName: 'murilo.baleeiro',
+  userPrincipalName: 'murilo.baleeiro@CORPORATION.LOCAL',
+  mail: 'murilo.baleeiro@hotmail.com',
+  homePhone: '14 3541-4575',
+  mobile: '14 99153-6847'
+}

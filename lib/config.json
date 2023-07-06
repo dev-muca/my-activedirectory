@@ -27,7 +27,6 @@
       "streetAddress",
       "wWWHomePage",
       "userAccountControl",
-      "dn",
       "directReports",
       "memberOf"
     ]
