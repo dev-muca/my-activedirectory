@@ -340,7 +340,7 @@ class ActiveDirectory {
       client.bind(this.user, this.pass, (err) => {
         if (err) return reject(err);
 
-        client.add(`CN=${userObject.cn},OU=Administrativo,OU=Colaboradores,${this.baseDN}`, userObject, (addErr) => {
+        client.add(`CN=${userObject.cn},OU=Users,${this.baseDN}`, userObject, (addErr) => {
           client.unbind();
 
           if (addErr) {
